@@ -1,0 +1,141 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.1'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id "com.diffplug.spotless" version '6.25.0'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+
+    maven {
+        url = uri("https://maven.pkg.github.com/truc3651/backend-core")
+        credentials {
+            username = project.findProperty("gpr.user") ?: System.getenv("USERNAME")
+            password = project.findProperty("gpr.token") ?: System.getenv("TOKEN")
+        }
+        content {
+            includeGroup "com.truc2001"
+        }
+    }
+}
+
+dependencies {
+    // Backend Core
+    implementation "com.truc2001:backend-core:${backendCoreVersion}"
+
+    // Spring Boot Starter (WebFlux - reactive)
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+
+    // Database - R2DBC for reactive PostgreSQL
+    implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+    implementation 'org.postgresql:r2dbc-postgresql:1.0.7.RELEASE'
+    // Keep JDBC for Flyway migrations (runs at startup, blocking is OK)
+    runtimeOnly 'org.postgresql:postgresql'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+    // Redis Cache - Reactive
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+    // Neo4j GraphDB - Reactive
+    implementation 'org.springframework.boot:spring-boot-starter-data-neo4j'
+
+    // Kafka - Reactive
+    implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'io.projectreactor.kafka:reactor-kafka'
+
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
+    // SLF4J
+    implementation 'org.slf4j:slf4j-api'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
+
+    // AWS
+    implementation(platform("software.amazon.awssdk:bom:2.27.21"))
+    implementation 'software.amazon.awssdk:secretsmanager'
+    implementation 'software.amazon.awssdk:ses'
+
+    // OpenAPI
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.4'
+
+    // Commons lang
+    implementation("org.apache.commons:commons-lang3:3.20.0")
+
+    // Test dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+
+    // Testcontainers
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+    testImplementation 'com.redis:testcontainers-redis:2.2.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    testImplementation 'org.testcontainers:testcontainers:2.0.3'
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter:2.0.3'
+    testImplementation 'org.testcontainers:testcontainers-postgresql:2.0.3'
+    testImplementation 'org.testcontainers:testcontainers-neo4j:2.0.3'
+    testImplementation 'org.testcontainers:testcontainers-kafka:2.0.3'
+    testImplementation 'org.testcontainers:testcontainers-localstack:2.0.3'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    systemProperty 'spring.profiles.active', 'test'
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+tasks.named('jar') {
+    enabled = false
+}
+
+spotless {
+    format 'misc', {
+        target '*.gradle', '.gitattributes', '.gitignore'
+        trimTrailingWhitespace()
+        indentWithSpaces(3)
+        endWithNewline()
+        setEncoding('utf-8')
+    }
+    java {
+        removeUnusedImports()
+        googleJavaFormat('1.15.0').reorderImports(false).skipJavadocFormatting()
+        indentWithSpaces(2)
+        trimTrailingWhitespace()
+        importOrder('\\#', 'java.', 'org.', 'com.')
+        endWithNewline()
+        toggleOffOn()
+    }
+}

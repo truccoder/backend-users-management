@@ -1,0 +1,56 @@
+ENVIRONMENT: test
+
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  application:
+    name: backend-users-test
+
+aws:
+  ses:
+    sender-email: test@example.com
+
+jwt:
+  access-token-expiration: 900000
+  refresh-token-expiration: 604800000
+  reset-token-expiration: 900000
+  rsa:
+    public-key: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyF384atC6GBO9ybz9PzS
+      zv0SZjmOcNTcV1U1wGohvxQBVlYcbqE2VD1QBwvH71j9EkSLm55EZ1b+AYomY/Ey
+      G40X9O/snZBiCF9a+NNT1173rDhSnJQujUSWQQQIynHdNhETd/95wUkd71uTrMUA
+      KxC5/NyDKy5SJaZ/p0xGNjHYeq7RRcqALcI1/QZzOfeAhesfRyjeQUCLOdF5Kig1
+      rAAAJz3gA2RuyAjx+y6/vfJYFS2+bk98E+BrPm1xDFRvZUcwMWvLt1Yoz0kJXPro
+      Dq/qI6tIjjuEpLHuTA28IG3L+wAfy2mkVHVQCqVAkrHfLrDJT5+F70g3UNP1fHdS
+      kQIDAQAB
+      -----END PUBLIC KEY-----
+    private-key: |
+      -----BEGIN PRIVATE KEY-----
+      MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDIXfzhq0LoYE73
+      JvP0/NLO/RJmOY5w1NxXVTXAaiG/FAFWVhxuoTZUPVAHC8fvWP0SRIubnkRnVv4B
+      iiZj8TIbjRf07+ydkGIIX1r401PXXvesOFKclC6NRJZBBAjKcd02ERN3/3nBSR3v
+      W5OsxQArELn83IMrLlIlpn+nTEY2Mdh6rtFFyoAtwjX9BnM594CF6x9HKN5BQIs5
+      0XkqKDWsAAAnPeADZG7ICPH7Lr+98lgVLb5uT3wT4Gs+bXEMVG9lRzAxa8u3VijP
+      SQlc+ugOr+ojq0iOO4Skse5MDbwgbcv7AB/LaaRUdVAKpUCSsd8usMlPn4XvSDdQ
+      0/V8d1KRAgMBAAECggEACFyqE+AVgIkIaXshVI+WAGFLjOx2t0ieUlXf0p2NkbQZ
+      h52pq2NtaTtOrnt0UCAPi7iyLf/s+nY74WQj8U2vGd+uMenlsUlqWoZh9DF3UTZS
+      VjX/P3jn+Cl2QULLMtcfz+kv0CwD8JXig92Jvo8IK9Y4FNmr7txVz74DCWS13kd+
+      65PQEaROqKuuoE+7ClUeIXa6q0SoIESn5YewL/hbBFw1XjVcutPQQSCSgnCza0XU
+      VtOAB/4/sLeuOs7NA+fJu9PIVjbNqktT/3QdYYTxMiK3YF2Bx+YjlkyUAMvC6L5E
+      63TjFYK2j+AG6RYesFiP4eNpICkdUyzG2VxEFtlU+wKBgQDqy29shTTiujzwP1yr
+      RXf9tHX7EuQPlU6kncjhVV8HbwZNTUItoeAk44bNTMNrhDInRFfk6/mWB+QEH01V
+      cGOdnsjyJPQECQ8v0NoAlqv8GQznMLmUIsFG+yMdUUWWWnufD+P+n9QFHnJjaXwk
+      PZti2Q2re6JqQkut37c6s1lODwKBgQDadpJZRUXLMk271jFfhPd9A5zvcPo0loSO
+      GB/itX43N4TTWfwrquGGkgRd6MWcm1nsXDncND22fQFm5TYlnJL+Uws9meBO14xg
+      LjSaluB31gIuN7CvwxZFkFnUv60QmyXahgA7txRQlF1BC5RvsTL/puMaf6dQBiL/
+      RSnU3nH1XwKBgGLP/POh19D3af/92oUl9kqqcOCaYaqBPpie4tSaNiUNv4w20Hwd
+      3RQJQUkTXkbYWrcV1xu7h81xQq/NcKFdbD8AfTcTADLWkTKhZa3Lu1OcQ0bkxaUn
+      P0odFPkYo/2T1OTrLhuRrgv9dUyLLzidSNC/4jXiEUdA4VKqjRVCN3pXAoGAfqns
+      5JGDi/LYmyXvboB7tiIYJcQNbdwvcuuN4TZ1vbIU8y3jRbZIGGwk2AYUPV7dXmuC
+      qKgpd9s2quAO6vPDTm37wHWtVkknfMSNf2wnLZQJo55qdR3Zle/CBdY0k8JAyliT
+      XgwiXS4Ie6QpJjFJbmzmlACbk4xbUkJZpLBsxmUCgYEAsWyh/5kpvrupiQ48mBDS
+      T+4SiC+dZYtnFIT+LdtLlBVFwWB5zglulw8/jnrrVAaiYZ/Sk4HUK9eWo6tJ2z/g
+      d2fZtMA11di2NOgEcUmbrAzj1/5n+qMrk3geXrNonrWNuRyb4/8o3tvHxiQ5rqQh
+      mC0nb70D9WsrjuWT8Qnd7Ow=
+      -----END PRIVATE KEY-----

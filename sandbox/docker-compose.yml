@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: users-postgresql
+    environment:
+      POSTGRES_DB: users_localdev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d
+    # wal_level=replica records just enough for physical replication
+    # wal_level=logical makes record additional context
+    #   (which table was changed, what the old row looked like, what the new row looks like)
+    # max_replication_slots=5 Run up to 5 separate Debezium connectors against this Postgres instance simultaneously. This current setup with one connector
+    # max_wal_senders=5 controls how many concurrent connections are allowed to stream WAL data.
+    command: >
+      postgres
+        -c wal_level=logical
+        -c max_replication_slots=5
+        -c max_wal_senders=5
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: users-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: users-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/neo4jpassword
+      # It is a large collection of utility functions and stored procedures that extend what you can do in Cypher queries
+      NEO4J_PLUGINS: '["apoc"]'
+      # By default Neo4j blocks any stored procedure from running unless it is explicitly trusted,
+      #   because procedures can execute arbitrary JVM code and access the filesystem
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: users-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: users-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9093:9093"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: users-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic follow --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic unfollow --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic block --partitions 3 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic unblock --partitions 3 --replication-factor 1
+      "
+    restart: "no"
+
+  # It starts, loads the Kafka Connect framework, and then sits there waiting for connector configurations to manage
+  kafka-connect:
+    image: debezium/connect:2.7.3.Final
+    container_name: users-kafka-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: users-connect-cluster
+      # Stores configs of every registered connector.
+      CONFIG_STORAGE_TOPIC: users_connect_configs
+      # Tracks how far each connector has read in its source
+      # For Debezium specifically, this stores the WAL position
+      OFFSET_STORAGE_TOPIC: users_connect_offsets
+      # Is where Connect publishes the current state of each connector and its tasks — RUNNING, PAUSED, FAILED
+      # GET /connectors/{name}/status reads from when you check connector health
+      STATUS_STORAGE_TOPIC: users_connect_statuses
+      # Only keep one copy of each of these internal topics
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8083/connectors || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # It runs a curl command to register a connector config via the REST API, then exits with code 0
+  # We can use curl, busybox here but they have quirks with how it handles multiline scripts and until loop
+  connector-init:
+    image: debezium/connect:2.7.3.Final
+    container_name: users-connector-init
+    depends_on:
+      kafka-connect:
+        condition: service_healthy
+    volumes:
+      - ./kafka/init-connector.sh:/init-connector.sh:ro
+    entrypoint: [ "/bin/sh" ]
+    command: [ "/init-connector.sh" ]
+    restart: "no"
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: users-localstack
+    environment:
+      SERVICES: ses
+      DEFAULT_REGION: ap-southeast-1
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./localstack/init:/etc/localstack/init/ready.d
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  neo4j_data:

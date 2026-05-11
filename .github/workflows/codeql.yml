@@ -1,0 +1,19 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+  schedule:
+    - cron: '33 6 * * 0'
+
+jobs:
+  analyze:
+    uses: truc3651/github-workflows/.github/workflows/codeql.yml@master
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read

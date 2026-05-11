@@ -1,0 +1,5 @@
+rootProject.name = 'backend-users-management'
+
+if (file('../backend-core').exists()) {
+    includeBuild('../backend-core')
+}

@@ -1,0 +1,83 @@
+spring:
+  application:
+    name: backend-users
+  flyway:
+    enabled: true
+    locations: classpath:migrations
+    schemas: users
+  kafka:
+    # pods in eks uses IRSA to talk to MSK cluster
+    security:
+      protocol: SASL_SSL
+      properties:
+        sasl.mechanism: AWS_MSK_IAM
+        sasl.jaas.config: software.amazon.msk.auth.iam.IAMLoginModule required;
+        sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        retry.backoff.ms: 1000
+        delivery.timeout.ms: 120000
+        request.timeout.ms: 30000
+        enable.idempotence: true
+
+org:
+  neo4j:
+    pool:
+      max-size: 50
+      connection-acquisition-timeout: 60s
+      max-connection-lifetime: 1h
+      idle-time-before-connection-test: 10s
+    connection-timeout: 30s
+    max-transaction-retry-time: 30s
+
+kafka-properties:
+  follow-topic-name: follows
+  unfollow-topic-name: unfollows
+  block-topic-name: blocks
+  unblock-topic-name: unblocks
+  dead-letter-topic-name: deadLetters
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+      base-path: /
+  endpoint:
+    health:
+      show-details: always
+
+app:
+  domain:
+  caches:
+    user:
+      key-prefix: "user:"
+      ttl: 10m
+    friends:
+      key-prefix: "friends:"
+      ttl: 15m
+    suggestions:
+      key-prefix: "suggestions:"
+      ttl: 30m
+
+jwt:
+  access-token-expiration: 900000      # 15 minutes
+  refresh-token-expiration: 604800000  # 7 days
+  reset-token-expiration: 900000       # 15 minutes
+  rsa:
+    public-key: ${JWT_RSA_PUBLIC_KEY:}
+    private-key: ${JWT_RSA_PRIVATE_KEY:}
+
+aws:
+  ses:
+    sender-email:

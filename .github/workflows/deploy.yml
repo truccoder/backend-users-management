@@ -1,0 +1,20 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: truc3651/github-workflows/.github/workflows/deploy.yml@master
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    with:
+      service_name: 'backend-users'
+    secrets:
+      aws_role_arn: ${{ secrets.AWS_ROLE_ARN }}
+      deployments_repo_token: ${{ secrets.DEPLOYMENTS_REPO_TOKEN }}
