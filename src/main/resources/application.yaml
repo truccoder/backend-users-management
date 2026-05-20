@@ -5,6 +5,12 @@ spring:
     enabled: true
     locations: classpath:migrations
     schemas: users
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${keycloak.server-url}/realms/${keycloak.realm}
+          jwk-set-uri: ${keycloak.server-url}/realms/${keycloak.realm}/protocol/openid-connect/certs
   kafka:
     # pods in eks uses IRSA to talk to MSK cluster
     security:
@@ -23,6 +29,12 @@ spring:
         delivery.timeout.ms: 120000
         request.timeout.ms: 30000
         enable.idempotence: true
+
+keycloak:
+  server-url: ${KEYCLOAK_SERVER_URL:}
+  realm: ${KEYCLOAK_REALM:}
+  client-id: ${KEYCLOAK_CLIENT_ID:}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:}
 
 org:
   neo4j:
@@ -69,14 +81,6 @@ app:
     suggestions:
       key-prefix: "suggestions:"
       ttl: 30m
-
-jwt:
-  access-token-expiration: 900000      # 15 minutes
-  refresh-token-expiration: 604800000  # 7 days
-  reset-token-expiration: 900000       # 15 minutes
-  rsa:
-    public-key: ${JWT_RSA_PUBLIC_KEY:}
-    private-key: ${JWT_RSA_PRIVATE_KEY:}
 
 aws:
   ses:

@@ -13,7 +13,6 @@ import com.backend.users.dtos.LogoutRequestDto;
 import com.backend.users.dtos.RefreshTokenRequestDto;
 import com.backend.users.dtos.RefreshTokenResponseDto;
 import com.backend.users.dtos.RegisterRequestDto;
-import com.backend.users.dtos.ResetPasswordRequestDto;
 import com.backend.users.services.AuthService;
 
 import jakarta.validation.Valid;
@@ -41,11 +40,6 @@ public class AuthController {
   @PostMapping("/forgot-password")
   public Mono<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
     return authService.forgotPassword(request);
-  }
-
-  @PostMapping("/reset-password")
-  public Mono<Void> resetPassword(@Valid @RequestBody ResetPasswordRequestDto request) {
-    return authService.resetPassword(request);
   }
 
   @PostMapping("/validate-token")

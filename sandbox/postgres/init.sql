@@ -1,6 +1,7 @@
 \c users_localdev;
 
 CREATE SCHEMA IF NOT EXISTS users;
+CREATE SCHEMA IF NOT EXISTS keycloak;
 
 ALTER DATABASE users_localdev SET search_path TO users, public;
 

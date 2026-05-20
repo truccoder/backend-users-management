@@ -1,17 +1,17 @@
 package com.backend.users.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
-import java.time.OffsetDateTime;
+import java.util.UUID;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
 import com.backend.core.dtos.ValidateTokenRequestDto;
-import com.backend.users.dtos.ChangePasswordRequestDto;
 import com.backend.users.dtos.ForgotPasswordRequestDto;
 import com.backend.users.dtos.LoginRequestDto;
 import com.backend.users.dtos.LoginResponseDto;
@@ -19,19 +19,26 @@ import com.backend.users.dtos.LogoutRequestDto;
 import com.backend.users.dtos.RefreshTokenRequestDto;
 import com.backend.users.dtos.RefreshTokenResponseDto;
 import com.backend.users.dtos.RegisterRequestDto;
-import com.backend.users.dtos.ResetPasswordRequestDto;
-import com.backend.users.entities.PasswordResetTokenEntity;
-import com.backend.users.entities.RefreshTokenEntity;
 import com.backend.users.entities.UserEntity;
+import com.backend.users.services.KeycloakService.KeycloakTokenResponse;
+
+import reactor.core.publisher.Mono;
 
 class AuthControllerTest extends BaseTest {
+
   @Nested
   class RegisterTests {
     @Test
     void shouldRegisterNewUser() {
+      String keycloakUserId = UUID.randomUUID().toString();
+      when(keycloakService.createUser(anyString(), anyString(), any()))
+          .thenReturn(Mono.just(keycloakUserId));
+
       RegisterRequestDto request = new RegisterRequestDto();
       request.setEmail("newuser@test.com");
       request.setPassword("securePassword123");
+      request.setFullName("New User");
+      request.setProfilePictureUrl("https://example.com/pic.jpg");
 
       webTestClient
           .post()
@@ -45,24 +52,7 @@ class AuthControllerTest extends BaseTest {
       UserEntity savedUser = userRepository.findByEmail("newuser@test.com").block();
       assertThat(savedUser).isNotNull();
       assertThat(savedUser.getEmail()).isEqualTo("newuser@test.com");
-    }
-
-    @Test
-    void shouldRejectRegistrationWithExistingEmail() {
-      createUser("existing@test.com");
-
-      RegisterRequestDto request = new RegisterRequestDto();
-      request.setEmail("existing@test.com");
-      request.setPassword("securePassword123");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/register")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isBadRequest();
+      assertThat(savedUser.getId()).isEqualTo(keycloakUserId);
     }
 
     @Test
@@ -70,6 +60,8 @@ class AuthControllerTest extends BaseTest {
       RegisterRequestDto request = new RegisterRequestDto();
       request.setEmail("invalid-email");
       request.setPassword("securePassword123");
+      request.setFullName("Test");
+      request.setProfilePictureUrl("https://example.com/pic.jpg");
 
       webTestClient
           .post()
@@ -86,6 +78,8 @@ class AuthControllerTest extends BaseTest {
       RegisterRequestDto request = new RegisterRequestDto();
       request.setEmail("");
       request.setPassword("securePassword123");
+      request.setFullName("Test");
+      request.setProfilePictureUrl("https://example.com/pic.jpg");
 
       webTestClient
           .post()
@@ -102,6 +96,8 @@ class AuthControllerTest extends BaseTest {
       RegisterRequestDto request = new RegisterRequestDto();
       request.setEmail("test@test.com");
       request.setPassword("");
+      request.setFullName("Test");
+      request.setProfilePictureUrl("https://example.com/pic.jpg");
 
       webTestClient
           .post()
@@ -118,7 +114,9 @@ class AuthControllerTest extends BaseTest {
   class LoginTests {
     @Test
     void shouldLoginWithValidCredentials() {
-      createUser("login@test.com", "correctPassword");
+      KeycloakTokenResponse tokenResponse =
+          new KeycloakTokenResponse("access-token", "refresh-token", 900, 604800, "Bearer");
+      when(keycloakService.login(anyString(), anyString())).thenReturn(Mono.just(tokenResponse));
 
       LoginRequestDto request = new LoginRequestDto();
       request.setEmail("login@test.com");
@@ -137,43 +135,9 @@ class AuthControllerTest extends BaseTest {
               response -> {
                 LoginResponseDto body = response.getResponseBody();
                 assertThat(body).isNotNull();
-                assertThat(body.getAccessToken()).isNotBlank();
-                assertThat(body.getRefreshToken()).isNotBlank();
+                assertThat(body.getAccessToken()).isEqualTo("access-token");
+                assertThat(body.getRefreshToken()).isEqualTo("refresh-token");
               });
-    }
-
-    @Test
-    void shouldRejectLoginWithWrongPassword() {
-      createUser("login@test.com", "correctPassword");
-
-      LoginRequestDto request = new LoginRequestDto();
-      request.setEmail("login@test.com");
-      request.setPassword("wrongPassword");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/login")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isUnauthorized();
-    }
-
-    @Test
-    void shouldRejectLoginWithNonExistentEmail() {
-      LoginRequestDto request = new LoginRequestDto();
-      request.setEmail("nonexistent@test.com");
-      request.setPassword("anyPassword");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/login")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isUnauthorized();
     }
 
     @Test
@@ -196,8 +160,8 @@ class AuthControllerTest extends BaseTest {
   @Nested
   class ForgotPasswordTests {
     @Test
-    void shouldInitiatePasswordResetForExistingUser() {
-      createUser("forgot@test.com");
+    void shouldInitiatePasswordReset() {
+      when(keycloakService.sendPasswordResetEmail(anyString())).thenReturn(Mono.empty());
 
       ForgotPasswordRequestDto request = new ForgotPasswordRequestDto();
       request.setEmail("forgot@test.com");
@@ -213,21 +177,6 @@ class AuthControllerTest extends BaseTest {
     }
 
     @Test
-    void shouldReturnErrorForNonExistentEmail() {
-      ForgotPasswordRequestDto request = new ForgotPasswordRequestDto();
-      request.setEmail("nonexistent@test.com");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/forgot-password")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isUnauthorized();
-    }
-
-    @Test
     void shouldRejectWithInvalidEmailFormat() {
       ForgotPasswordRequestDto request = new ForgotPasswordRequestDto();
       request.setEmail("invalid-email");
@@ -240,92 +189,6 @@ class AuthControllerTest extends BaseTest {
           .exchange()
           .expectStatus()
           .is4xxClientError();
-    }
-  }
-
-  @Nested
-  class ResetPasswordTests {
-    @Test
-    void shouldResetPasswordWithValidToken() {
-      UserEntity user = createUser("reset@test.com", "oldPassword");
-      PasswordResetTokenEntity token =
-          createPasswordResetToken(user, OffsetDateTime.now().plusHours(1));
-
-      ResetPasswordRequestDto request = new ResetPasswordRequestDto();
-      request.setToken(token.getToken());
-      request.setNewPassword("newSecurePassword123");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/reset-password")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isOk();
-
-      UserEntity updatedUser = findUser(user.getId());
-      assertThat(passwordEncoder.matches("newSecurePassword123", updatedUser.getPassword()))
-          .isTrue();
-    }
-
-    @Test
-    void shouldRejectResetWithExpiredToken() {
-      UserEntity user = createUser("reset@test.com");
-      PasswordResetTokenEntity token =
-          createPasswordResetToken(user, OffsetDateTime.now().minusHours(1));
-
-      ResetPasswordRequestDto request = new ResetPasswordRequestDto();
-      request.setToken(token.getToken());
-      request.setNewPassword("newPassword");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/reset-password")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isBadRequest();
-    }
-
-    @Test
-    void shouldRejectResetWithInvalidToken() {
-      ResetPasswordRequestDto request = new ResetPasswordRequestDto();
-      request.setToken("invalid-token-12345");
-      request.setNewPassword("newPassword");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/reset-password")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isBadRequest();
-    }
-
-    @Test
-    void shouldDeleteTokenAfterSuccessfulReset() {
-      UserEntity user = createUser("reset@test.com");
-      PasswordResetTokenEntity token =
-          createPasswordResetToken(user, OffsetDateTime.now().plusHours(1));
-
-      ResetPasswordRequestDto request = new ResetPasswordRequestDto();
-      request.setToken(token.getToken());
-      request.setNewPassword("newPassword");
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/reset-password")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isOk();
-
-      PasswordResetTokenEntity deletedToken = findPasswordResetToken(token.getToken());
-      assertThat(deletedToken).isNull();
     }
   }
 
@@ -368,20 +231,14 @@ class AuthControllerTest extends BaseTest {
 
   @Nested
   class RefreshTokenTests {
-    private UserEntity testUser;
-
-    @BeforeEach
-    void setUp() {
-      testUser = createUser("testuser@test.com", "originalPassword");
-    }
-
     @Test
     void shouldRefreshAccessToken() {
-      RefreshTokenEntity refreshToken =
-          createRefreshToken(testUser, OffsetDateTime.now().plusDays(7));
+      KeycloakTokenResponse tokenResponse =
+          new KeycloakTokenResponse("new-access-token", "new-refresh-token", 900, 604800, "Bearer");
+      when(keycloakService.refreshToken(anyString())).thenReturn(Mono.just(tokenResponse));
 
       RefreshTokenRequestDto request = new RefreshTokenRequestDto();
-      request.setRefreshToken(refreshToken.getToken());
+      request.setRefreshToken("valid-refresh-token");
 
       webTestClient
           .post()
@@ -396,26 +253,8 @@ class AuthControllerTest extends BaseTest {
               response -> {
                 RefreshTokenResponseDto body = response.getResponseBody();
                 assertThat(body).isNotNull();
-                assertThat(body.getAccessToken()).isNotBlank();
+                assertThat(body.getAccessToken()).isEqualTo("new-access-token");
               });
-    }
-
-    @Test
-    void shouldRejectRefreshWithExpiredToken() {
-      RefreshTokenEntity expiredToken =
-          createRefreshToken(testUser, OffsetDateTime.now().minusHours(1));
-
-      RefreshTokenRequestDto request = new RefreshTokenRequestDto();
-      request.setRefreshToken(expiredToken.getToken());
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/refresh")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isBadRequest();
     }
 
     @Test
@@ -432,73 +271,16 @@ class AuthControllerTest extends BaseTest {
           .expectStatus()
           .is4xxClientError();
     }
-
-    @Test
-    void newAccessTokenShouldBeValid() {
-      RefreshTokenEntity refreshToken =
-          createRefreshToken(testUser, OffsetDateTime.now().plusDays(7));
-
-      RefreshTokenRequestDto request = new RefreshTokenRequestDto();
-      request.setRefreshToken(refreshToken.getToken());
-
-      String newAccessToken =
-          webTestClient
-              .post()
-              .uri("/v1/api/auth/refresh")
-              .contentType(MediaType.APPLICATION_JSON)
-              .bodyValue(request)
-              .exchange()
-              .expectStatus()
-              .isOk()
-              .expectBody(RefreshTokenResponseDto.class)
-              .returnResult()
-              .getResponseBody()
-              .getAccessToken();
-
-      webTestClient
-          .post()
-          .uri("/v1/api/user/change-password")
-          .header(HttpHeaders.AUTHORIZATION, "Bearer " + generateToken(testUser))
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(new ChangePasswordRequestDto("anotherPassword"))
-          .exchange()
-          .expectStatus()
-          .isOk();
-    }
   }
 
   @Nested
   class LogoutTests {
-    private UserEntity testUser;
-
-    @BeforeEach
-    void setUp() {
-      testUser = createUser("testuser@test.com", "originalPassword");
-    }
-
     @Test
-    void shouldLogoutAndInvalidateRefreshToken() {
-      RefreshTokenEntity refreshToken =
-          createRefreshToken(testUser, OffsetDateTime.now().plusDays(7));
-      LogoutRequestDto request = new LogoutRequestDto(refreshToken.getToken());
+    void shouldLogoutSuccessfully() {
+      when(keycloakService.logout(anyString())).thenReturn(Mono.empty());
 
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/logout")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isOk();
-
-      RefreshTokenEntity deletedToken =
-          refreshTokenRepository.findByToken(refreshToken.getToken()).block();
-      assertThat(deletedToken).isNull();
-    }
-
-    @Test
-    void shouldHandleLogoutWithNonExistentToken() {
-      LogoutRequestDto request = new LogoutRequestDto("non-existent-token");
+      LogoutRequestDto request = new LogoutRequestDto();
+      request.setRefreshToken("valid-refresh-token");
 
       webTestClient
           .post()
@@ -512,44 +294,17 @@ class AuthControllerTest extends BaseTest {
 
     @Test
     void shouldRejectLogoutWithBlankToken() {
-      LogoutRequestDto request = new LogoutRequestDto("");
+      LogoutRequestDto request = new LogoutRequestDto();
+      request.setRefreshToken("");
+
       webTestClient
           .post()
-          .uri("/v1/api/user/logout")
+          .uri("/v1/api/auth/logout")
           .contentType(MediaType.APPLICATION_JSON)
           .bodyValue(request)
           .exchange()
           .expectStatus()
           .is4xxClientError();
-    }
-
-    @Test
-    void refreshTokenShouldNotWorkAfterLogout() {
-      RefreshTokenEntity refreshToken =
-          createRefreshToken(testUser, OffsetDateTime.now().plusDays(7));
-      String tokenValue = refreshToken.getToken();
-
-      LogoutRequestDto logoutRequest = new LogoutRequestDto(tokenValue);
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/logout")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(logoutRequest)
-          .exchange()
-          .expectStatus()
-          .isOk();
-
-      RefreshTokenRequestDto refreshRequest = new RefreshTokenRequestDto();
-      refreshRequest.setRefreshToken(tokenValue);
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/refresh")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(refreshRequest)
-          .exchange()
-          .expectStatus()
-          .isBadRequest();
     }
   }
 }

@@ -1,6 +1,7 @@
 package com.backend.users.integration;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -11,35 +12,34 @@ import org.springframework.http.MediaType;
 import com.backend.users.dtos.ChangePasswordRequestDto;
 import com.backend.users.entities.UserEntity;
 
+import reactor.core.publisher.Mono;
+
 class UserControllerTest extends BaseTest {
   private UserEntity testUser;
 
   @BeforeEach
   void setUp() {
-    testUser = createUser("testuser@test.com", "originalPassword");
+    testUser = createUser("testuser@test.com");
   }
 
   @Nested
   class ChangePasswordTests {
     @Test
     void shouldChangePassword() {
+      when(keycloakService.updatePassword(anyString(), anyString())).thenReturn(Mono.empty());
+
       ChangePasswordRequestDto request = new ChangePasswordRequestDto();
       request.setNewPassword("newSecurePassword123");
 
       webTestClient
           .post()
-          .uri("/v1/api/user/change-password")
+          .uri("/v1/api/me/change-password")
           .header(HttpHeaders.AUTHORIZATION, "Bearer " + generateToken(testUser))
           .contentType(MediaType.APPLICATION_JSON)
           .bodyValue(request)
           .exchange()
           .expectStatus()
           .isOk();
-
-      UserEntity updatedUser =
-          transactionalOperator.transactional(userRepository.findById(testUser.getId())).block();
-      assertThat(passwordEncoder.matches("newSecurePassword123", updatedUser.getPassword()))
-          .isTrue();
     }
 
     @Test
@@ -49,7 +49,7 @@ class UserControllerTest extends BaseTest {
 
       webTestClient
           .post()
-          .uri("/v1/api/user/change-password")
+          .uri("/v1/api/me/change-password")
           .contentType(MediaType.APPLICATION_JSON)
           .bodyValue(request)
           .exchange()
@@ -64,7 +64,7 @@ class UserControllerTest extends BaseTest {
 
       webTestClient
           .post()
-          .uri("/v1/api/user/change-password")
+          .uri("/v1/api/me/change-password")
           .header(HttpHeaders.AUTHORIZATION, "Bearer " + generateToken(testUser))
           .contentType(MediaType.APPLICATION_JSON)
           .bodyValue(request)

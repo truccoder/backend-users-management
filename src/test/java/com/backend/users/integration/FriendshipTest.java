@@ -112,7 +112,7 @@ class FriendshipTest extends BaseTest {
     @Test
     void shouldReturn404ForNonExistentAddressee() {
       SendFriendRequestDto request = new SendFriendRequestDto();
-      request.setAddresseeId(99999L);
+      request.setAddresseeId("non-existent-id");
 
       webTestClient
           .post()

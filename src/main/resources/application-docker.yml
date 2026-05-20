@@ -1,0 +1,25 @@
+AURORA_HOST: postgres
+AURORA_PORT: 5432
+
+NEO4J_HOST: neo4j
+
+cache:
+  host: redis
+  port: 6379
+
+spring:
+  kafka:
+    bootstrap-servers: kafka:9092
+    security:
+      protocol: PLAINTEXT
+      properties:
+        sasl.mechanism:
+        sasl.jaas.config:
+        sasl.client.callback.handler.class:
+
+keycloak:
+  server-url: http://keycloak:8180
+
+aws:
+  ses:
+    localstack-endpoint: http://localstack:4566
