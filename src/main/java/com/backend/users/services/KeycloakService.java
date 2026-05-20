@@ -1,8 +1,10 @@
 package com.backend.users.services;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -24,27 +26,31 @@ import reactor.core.publisher.Mono;
 public class KeycloakService {
   private final WebClient webClient;
   private final KeycloakProperties properties;
+  private final GeoLocationService geoLocationService;
 
-  public KeycloakService(WebClient.Builder webClientBuilder, KeycloakProperties properties) {
+  public KeycloakService(
+      WebClient.Builder webClientBuilder,
+      KeycloakProperties properties,
+      GeoLocationService geoLocationService) {
     this.webClient = webClientBuilder.build();
     this.properties = properties;
+    this.geoLocationService = geoLocationService;
   }
 
-  public Mono<String> createUser(String email, String password, String fullName) {
-    Map<String, Object> userRepresentation =
-        Map.of(
-            "username",
-            email,
-            "email",
-            email,
-            "firstName",
-            fullName,
-            "enabled",
-            true,
-            "emailVerified",
-            true,
-            "credentials",
-            List.of(Map.of("type", "password", "value", password, "temporary", false)));
+  public Mono<String> createUser(
+      String email, String password, String fullName, String profilePictureUrl) {
+    Map<String, Object> userRepresentation = new HashMap<>();
+    userRepresentation.put("username", email);
+    userRepresentation.put("email", email);
+    userRepresentation.put("firstName", fullName);
+    userRepresentation.put("enabled", true);
+    userRepresentation.put("emailVerified", true);
+    userRepresentation.put(
+        "credentials", List.of(Map.of("type", "password", "value", password, "temporary", false)));
+
+    Map<String, List<String>> attributes = new HashMap<>();
+    attributes.put("profilePictureUrl", List.of(Optional.ofNullable(profilePictureUrl).orElse("")));
+    userRepresentation.put("attributes", attributes);
 
     return getAdminAccessToken()
         .flatMap(
@@ -69,6 +75,38 @@ public class KeycloakService {
         .onErrorResume(
             WebClientResponseException.Conflict.class,
             e -> Mono.error(new ValidationException("Email already exists")));
+  }
+
+  public Mono<Void> updateUserAttributes(
+      String keycloakUserId, String fullName, String profilePictureUrl) {
+    Map<String, Object> update = new HashMap<>();
+    if (Objects.nonNull(fullName)) {
+      update.put("firstName", fullName);
+    }
+    Map<String, List<String>> attributes = new HashMap<>();
+    if (Objects.nonNull(profilePictureUrl)) {
+      attributes.put("profilePictureUrl", List.of(profilePictureUrl));
+    }
+    if (!attributes.isEmpty()) {
+      update.put("attributes", attributes);
+    }
+
+    if (update.isEmpty()) {
+      return Mono.empty();
+    }
+
+    return getAdminAccessToken()
+        .flatMap(
+            adminToken ->
+                webClient
+                    .put()
+                    .uri(properties.adminUsersEndpoint() + "/" + keycloakUserId)
+                    .headers(h -> h.setBearerAuth(adminToken))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(update)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .then());
   }
 
   public Mono<KeycloakTokenResponse> login(String email, String password) {
@@ -169,11 +207,34 @@ public class KeycloakService {
                     .headers(h -> h.setBearerAuth(adminToken))
                     .retrieve()
                     .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
-                    .map(
-                        sessions ->
-                            sessions.stream()
-                                .map(s -> toSessionResponse(s, currentSessionId))
-                                .toList()));
+                    .flatMapMany(Flux::fromIterable)
+                    .flatMap(s -> enrichSession(s, currentSessionId))
+                    .collectList());
+  }
+
+  private Mono<SessionResponseDto> enrichSession(
+      Map<String, Object> session, String currentSessionId) {
+    String id = session.get("id").toString();
+    String ipAddress = (String) session.get("ipAddress");
+
+    @SuppressWarnings("unchecked")
+    Map<String, String> notes = (Map<String, String>) session.get("notes");
+    String userAgent = notes != null ? notes.get("userAgent") : null;
+    String device = parseDevice(userAgent);
+
+    return geoLocationService
+        .resolveCity(ipAddress)
+        .map(
+            location ->
+                SessionResponseDto.builder()
+                    .id(id)
+                    .ipAddress(ipAddress)
+                    .device(device)
+                    .location(location)
+                    .start(((Number) session.get("start")).longValue())
+                    .lastAccess(((Number) session.get("lastAccess")).longValue())
+                    .current(id.equals(currentSessionId))
+                    .build());
   }
 
   public Mono<Void> revokeSession(String sessionId) {
@@ -215,16 +276,38 @@ public class KeycloakService {
                     .then());
   }
 
-  private SessionResponseDto toSessionResponse(
-      Map<String, Object> session, String currentSessionId) {
-    String id = session.get("id").toString();
-    return SessionResponseDto.builder()
-        .id(id)
-        .ipAddress((String) session.get("ipAddress"))
-        .start(((Number) session.get("start")).longValue())
-        .lastAccess(((Number) session.get("lastAccess")).longValue())
-        .current(id.equals(currentSessionId))
-        .build();
+  private String parseDevice(String userAgent) {
+    if (userAgent == null || userAgent.isBlank()) {
+      return "Unknown";
+    }
+
+    String browser = "Unknown Browser";
+    if (userAgent.contains("Edg/")) {
+      browser = "Edge";
+    } else if (userAgent.contains("Chrome/")) {
+      browser = "Chrome";
+    } else if (userAgent.contains("Firefox/")) {
+      browser = "Firefox";
+    } else if (userAgent.contains("Safari/") && !userAgent.contains("Chrome/")) {
+      browser = "Safari";
+    }
+
+    String os = "Unknown OS";
+    if (userAgent.contains("iPhone")) {
+      os = "iPhone";
+    } else if (userAgent.contains("iPad")) {
+      os = "iPad";
+    } else if (userAgent.contains("Android")) {
+      os = "Android";
+    } else if (userAgent.contains("Mac OS X")) {
+      os = "macOS";
+    } else if (userAgent.contains("Windows")) {
+      os = "Windows";
+    } else if (userAgent.contains("Linux")) {
+      os = "Linux";
+    }
+
+    return browser + " on " + os;
   }
 
   private Mono<String> getAdminAccessToken() {

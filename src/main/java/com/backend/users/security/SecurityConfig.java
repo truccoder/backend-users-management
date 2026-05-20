@@ -51,7 +51,11 @@ public class SecurityConfig {
             exchange -> {
               exchange
                   .pathMatchers(
-                      "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/webjars/**")
+                      "/health",
+                      "/swagger-ui.html",
+                      "/swagger-ui/**",
+                      "/v3/api-docs/**",
+                      "/webjars/**")
                   .permitAll();
 
               if (anonymousPaths.length > 0) {

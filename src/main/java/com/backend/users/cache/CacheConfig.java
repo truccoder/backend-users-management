@@ -17,16 +17,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @EnableConfigurationProperties(CacheProperties.class)
 public class CacheConfig {
   @Bean
-  public ReactiveCacheTemplate<ProfileResponseDto> userProfileCache(
-      @Qualifier("reactiveStringRedisTemplate") ReactiveRedisTemplate<String, String> redis,
-      ObjectMapper mapper,
-      CacheProperties props) {
-    CacheProperties.CacheConfig config = props.getUser();
-    return new ReactiveCacheTemplate<>(
-        redis, mapper, config.getKeyPrefix(), config.getTtl(), new TypeReference<>() {});
-  }
-
-  @Bean
   public ReactiveCacheTemplate<List<ProfileResponseDto>> friendsCache(
       @Qualifier("reactiveStringRedisTemplate") ReactiveRedisTemplate<String, String> redis,
       ObjectMapper mapper,

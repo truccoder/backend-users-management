@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 public class SessionResponseDto {
   private String id;
   private String ipAddress;
+  private String device;
+  private String location;
   private long start;
   private long lastAccess;
   private boolean current;

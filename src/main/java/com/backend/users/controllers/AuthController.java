@@ -4,8 +4,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.backend.core.annotations.Anonymous;
-import com.backend.core.dtos.ValidateTokenRequestDto;
-import com.backend.core.dtos.ValidateTokenResponseDto;
 import com.backend.users.dtos.ForgotPasswordRequestDto;
 import com.backend.users.dtos.LoginRequestDto;
 import com.backend.users.dtos.LoginResponseDto;
@@ -40,12 +38,6 @@ public class AuthController {
   @PostMapping("/forgot-password")
   public Mono<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto request) {
     return authService.forgotPassword(request);
-  }
-
-  @PostMapping("/validate-token")
-  public Mono<ValidateTokenResponseDto> validateToken(
-      @Valid @RequestBody ValidateTokenRequestDto request) {
-    return authService.validateToken(request);
   }
 
   @PostMapping("/refresh")

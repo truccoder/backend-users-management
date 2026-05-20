@@ -2,6 +2,8 @@ package com.backend.users.controllers;
 
 import java.util.List;
 
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -11,12 +13,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.backend.core.dtos.UserDto;
 import com.backend.core.security.KeycloakAuthenticationToken;
 import com.backend.users.dtos.ChangePasswordRequestDto;
-import com.backend.users.dtos.ProfileResponseDto;
+import com.backend.users.dtos.LoginResponseDto;
 import com.backend.users.dtos.SessionResponseDto;
 import com.backend.users.dtos.UpdateProfileRequestDto;
 import com.backend.users.services.KeycloakService;
@@ -33,16 +36,19 @@ public class UserController {
   private final UserService userService;
   private final KeycloakService keycloakService;
 
-  @GetMapping("/profile")
-  public Mono<ProfileResponseDto> getProfile(@AuthenticationPrincipal UserDto currentUser) {
-    return userService.getProfile(currentUser);
-  }
-
   @PutMapping("/profile")
-  public Mono<ProfileResponseDto> updateProfile(
+  public Mono<LoginResponseDto> updateProfile(
       @AuthenticationPrincipal UserDto currentUser,
       @Valid @RequestBody UpdateProfileRequestDto request) {
     return userService.updateProfile(currentUser, request);
+  }
+
+  @PostMapping(value = "/profile-picture", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public Mono<LoginResponseDto> uploadProfilePicture(
+      @AuthenticationPrincipal UserDto currentUser,
+      @RequestPart("file") FilePart file,
+      @RequestPart("refreshToken") String refreshToken) {
+    return userService.uploadProfilePicture(currentUser, file, refreshToken);
   }
 
   @PostMapping("/change-password")

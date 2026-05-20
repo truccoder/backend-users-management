@@ -20,6 +20,9 @@ spring:
 keycloak:
   server-url: http://keycloak:8180
 
+minio:
+  endpoint: http://minio:9000
+
 aws:
   ses:
     localstack-endpoint: http://localstack:4566

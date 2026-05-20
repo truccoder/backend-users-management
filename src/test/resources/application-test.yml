@@ -13,6 +13,8 @@ aws:
   ses:
     sender-email: test@example.com
 
+POD_NAME: test-pod
+
 keycloak:
   server-url: http://localhost:8180
   realm: test

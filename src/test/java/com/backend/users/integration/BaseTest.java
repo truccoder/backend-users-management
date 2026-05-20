@@ -77,6 +77,8 @@ public abstract class BaseTest {
   protected ReactiveRedisTemplate<String, String> redisTemplate;
 
   @MockBean protected KeycloakService keycloakService;
+  @MockBean protected com.backend.core.minio.MinioService minioService;
+  @MockBean protected com.backend.users.services.GeoLocationService geoLocationService;
 
   protected static Consumer<String, BaseEvent> kafkaConsumer;
 

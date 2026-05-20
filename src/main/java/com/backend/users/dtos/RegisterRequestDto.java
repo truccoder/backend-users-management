@@ -9,5 +9,5 @@ public class RegisterRequestDto {
   @NotBlank @Email private String email;
   @NotBlank private String password;
   @NotBlank private String fullName;
-  @NotBlank private String profilePictureUrl;
+  private String profilePictureUrl;
 }

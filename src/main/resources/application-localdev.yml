@@ -34,6 +34,12 @@ keycloak:
   client-id: backend-users
   client-secret: backend-users-secret
 
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: users-profile-pictures
+
 aws:
   ses:
     sender-email: no-reply@localhost

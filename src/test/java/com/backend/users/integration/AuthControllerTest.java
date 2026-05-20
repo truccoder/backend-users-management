@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
-import com.backend.core.dtos.ValidateTokenRequestDto;
 import com.backend.users.dtos.ForgotPasswordRequestDto;
 import com.backend.users.dtos.LoginRequestDto;
 import com.backend.users.dtos.LoginResponseDto;
@@ -31,7 +30,7 @@ class AuthControllerTest extends BaseTest {
     @Test
     void shouldRegisterNewUser() {
       String keycloakUserId = UUID.randomUUID().toString();
-      when(keycloakService.createUser(anyString(), anyString(), any()))
+      when(keycloakService.createUser(anyString(), anyString(), any(), any()))
           .thenReturn(Mono.just(keycloakUserId));
 
       RegisterRequestDto request = new RegisterRequestDto();
@@ -184,43 +183,6 @@ class AuthControllerTest extends BaseTest {
       webTestClient
           .post()
           .uri("/v1/api/auth/forgot-password")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .is4xxClientError();
-    }
-  }
-
-  @Nested
-  class ValidateTokenTests {
-    @Test
-    void shouldReturnValidForUnexpiredToken() {
-      UserEntity user = createUser("validate@test.com");
-      String token = generateToken(user);
-      ValidateTokenRequestDto request = new ValidateTokenRequestDto(token);
-
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/validate-token")
-          .contentType(MediaType.APPLICATION_JSON)
-          .bodyValue(request)
-          .exchange()
-          .expectStatus()
-          .isOk()
-          .expectBody()
-          .jsonPath("$.valid")
-          .isEqualTo(true)
-          .jsonPath("$.user.email")
-          .isEqualTo("validate@test.com");
-    }
-
-    @Test
-    void shouldRejectValidationWithBlankToken() {
-      ValidateTokenRequestDto request = new ValidateTokenRequestDto("");
-      webTestClient
-          .post()
-          .uri("/v1/api/auth/validate-token")
           .contentType(MediaType.APPLICATION_JSON)
           .bodyValue(request)
           .exchange()

@@ -1,5 +1,6 @@
 package com.backend.users.dtos;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,4 +15,6 @@ public class UpdateProfileRequestDto {
 
   @Size(max = 1024)
   private String profilePictureUrl;
+
+  @NotBlank private String refreshToken;
 }

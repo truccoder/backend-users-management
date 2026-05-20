@@ -55,6 +55,32 @@
             "id.token.claim": "true",
             "access.token.claim": "true"
           }
+        },
+        {
+          "name": "fullName",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "claim.name": "fullName",
+            "user.attribute": "firstName",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "profilePictureUrl",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "claim.name": "profilePictureUrl",
+            "user.attribute": "profilePictureUrl",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
         }
       ]
     }
@@ -106,6 +132,16 @@
       }
     }
   ],
-  "smtpServer": {},
+  "smtpServer": {
+    "host": "sandbox.smtp.mailtrap.io",
+    "port": "2525",
+    "from": "no-reply@yourapp.com",
+    "fromDisplayName": "Backend Users",
+    "auth": "true",
+    "user": "<mailtrap-user>",
+    "password": "<mailtrap-password>",
+    "starttls": "true",
+    "ssl": "false"
+  },
   "eventsEnabled": false
 }
